@@ -34,9 +34,10 @@ func main() {
 }
 
 func setup() (err error) {
+	//Get the file to send over HTTP
 	payloadFile, err = os.Open(fmt.Sprintf("./%s", payloadFilename))
 	if err != nil {
-		return err
+		return fmt.Errorf("Could not open payload file: %s", err.Error())
 	}
 
 	//Get length of file for reporting
@@ -46,13 +47,21 @@ func setup() (err error) {
 	}
 
 	payloadFileLength = stats.Size()
-	return
+
+	//Make sure the PORT env var is set
+	if os.Getenv("PORT") == "" {
+		return fmt.Errorf("Please set PORT environment variable with port for server to listen on")
+	}
+
+	return nil
 }
 
 func launchAPIServer(errChan chan<- error) {
 	router := mux.NewRouter()
 	router.HandleFunc("/check/{route}", checkHandler).Methods("GET")
 	router.HandleFunc("/listen", listenHandler).Methods("POST")
+
+	http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), router)
 }
 
 type responseJSON struct {
