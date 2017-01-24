@@ -6,17 +6,23 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 
 	"bufio"
 
 	"github.com/gorilla/mux"
 )
 
-const payloadFilename = "test_payload"
+const (
+	payloadFilename = "test_payload"
+	defaultTimeout  = 5
+)
 
 var (
 	payloadFile       *os.File
 	payloadFileLength int64
+	outgoingClient    = &http.Client{Timeout: defaultTimeout * time.Second}
 )
 
 func main() {
@@ -53,6 +59,25 @@ func setup() (err error) {
 		return fmt.Errorf("Please set PORT environment variable with port for server to listen on")
 	}
 
+	//Make sure that PORT is numeric
+	_, err = strconv.Atoi(os.Getenv("PORT"))
+	if err != nil {
+		return fmt.Errorf("PORT environment variable was not numeric")
+	}
+
+	//Set http timeout to custom value if specified.
+	if len(os.Args) > 1 {
+		//Make sure its numeric
+		customTimeout, err := strconv.ParseInt(os.Args[1], 10, 64)
+		if err != nil {
+			return fmt.Errorf("Timeout argument not numeric")
+		}
+
+		log.Printf("Setting HTTP client timeout to %d seconds", customTimeout)
+
+		outgoingClient.Timeout = time.Duration(customTimeout) * time.Second
+	}
+
 	return nil
 }
 
@@ -70,8 +95,8 @@ type responseJSON struct {
 	Bytes        *int64 `json:"bytes"`
 }
 
-func responsify(r responseJSON) []byte {
-	ret, err := json.Marshal(&r)
+func responsify(r *responseJSON) []byte {
+	ret, err := json.Marshal(r)
 	if err != nil {
 		panic("Couldn't marshal JSON")
 	}
@@ -79,15 +104,15 @@ func responsify(r responseJSON) []byte {
 }
 
 func checkHandler(w http.ResponseWriter, r *http.Request) {
-	outgoingResp := responseJSON{Bytes: &payloadFileLength}
-	defer w.Write(responsify(outgoingResp))
+	outgoingResp := &responseJSON{Bytes: &payloadFileLength}
 
 	route := mux.Vars(r)["route"]
-	resp, err := http.Post(route, "text/plain", bufio.NewReader(payloadFile))
+	resp, err := http.Post(fmt.Sprintf("http://%s/listen", route), "text/plain", bufio.NewReader(payloadFile))
 
 	if err != nil {
 		outgoingResp.ErrorMessage = fmt.Sprintf("Error while sending request: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(responsify(outgoingResp))
 		return
 	}
 
@@ -98,6 +123,7 @@ func checkHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(resp.StatusCode)
 	outgoingResp.Status = &resp.StatusCode
+	w.Write(responsify(outgoingResp))
 }
 
 func listenHandler(w http.ResponseWriter, r *http.Request) {
