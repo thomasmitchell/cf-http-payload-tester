@@ -28,15 +28,11 @@ var (
 func main() {
 	err := setup()
 	if err != nil {
-		log.Fatalf(err.Error())
+		log.Fatal(err.Error())
 	}
 
-	apiErrChan := make(chan error, 0)
-	go launchAPIServer(apiErrChan)
-	select {
-	case err = <-apiErrChan:
-		log.Fatalf(err.Error())
-	}
+	err = launchAPIServer()
+	log.Fatal(err.Error())
 }
 
 func setup() (err error) {
@@ -81,12 +77,12 @@ func setup() (err error) {
 	return nil
 }
 
-func launchAPIServer(errChan chan<- error) {
+func launchAPIServer() error {
 	router := mux.NewRouter()
 	router.HandleFunc("/check/{route}", checkHandler).Methods("GET")
 	router.HandleFunc("/listen", listenHandler).Methods("POST")
 
-	http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), router)
+	return http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), router)
 }
 
 type responseJSON struct {
