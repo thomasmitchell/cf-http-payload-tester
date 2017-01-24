@@ -1,6 +1,6 @@
 # cf-http-payload-tester
 
-This app can be `curl`ed on it's `/match/{route}` endpoint to send an http 
+This app can be `curl`ed on it's `/match/{route}` endpoint to send an http
 payload to another instance of this application. The body of the request that
 gets sent is configurable.
 
@@ -20,19 +20,19 @@ folder, but if it doesn't, you can navigate to
 The binary that gets created will probably be called `cf-http-payload-tester`.
 
 ```bash
-PORT=1234 ./cf-http-payload-tester 8
+PORT=1234 ./cf-http-payload-tester -t 8s
 ```
 
 Set the `PORT` environment variable to the port number you want the server to
 listen on (Cloud Foundry does this for you when you push an app).
 
-The app can take an additional argument, a positive integer, which specifies
-the time in seconds that the server should wait to receive the confirmation that
-the payload was properly sent.
-
 The payload is configured by creating the `test_payload` file in the same
 directory as the binary and having its contents be what you want to send as the
 body of the HTTP request.
+
+The app can be configured for different timeouts, payload file targets, and to 
+send out an https request for checks. See `--help` for more details.
+
 
 ### Making requests
 

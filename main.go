@@ -7,25 +7,35 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"time"
 
 	"bufio"
 
 	"github.com/gorilla/mux"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 const (
-	payloadFilename = "test_payload"
-	defaultTimeout  = 5
+	defaultPayloadFilename = "test_payload"
+	defaultTimeout         = "5s"
 )
 
 var (
 	payloadFile       *os.File
 	payloadFileLength int64
-	outgoingClient    = &http.Client{Timeout: defaultTimeout * time.Second}
+	outgoingClient    = &http.Client{}
+	protocol          = "http"
+
+	//COMMAND LINE STUFF
+	cmdline         = kingpin.New("cf-http-payload-tester", "Test your HTTP requests")
+	timeout         = cmdline.Flag("timeout", "Time in seconds to wait for response to check calls").Short('t').Default(defaultTimeout).Duration()
+	useHTTPS        = cmdline.Flag("https-out", "Use https in outbound URL instead of http").Short('s').Bool()
+	payloadFilename = cmdline.Flag("payload", "Target payload file").Short('p').Default(defaultPayloadFilename).String()
 )
 
 func main() {
+	cmdline.HelpFlag.Short('h')
+	kingpin.MustParse(cmdline.Parse(os.Args[1:]))
+
 	err := setup()
 	if err != nil {
 		log.Fatal(err.Error())
@@ -37,7 +47,7 @@ func main() {
 
 func setup() (err error) {
 	//Get the file to send over HTTP
-	payloadFile, err = os.Open(fmt.Sprintf("./%s", payloadFilename))
+	payloadFile, err = os.Open(fmt.Sprintf("%s", *payloadFilename))
 	if err != nil {
 		return fmt.Errorf("Could not open payload file: %s", err.Error())
 	}
@@ -61,18 +71,13 @@ func setup() (err error) {
 		return fmt.Errorf("PORT environment variable was not numeric")
 	}
 
-	//Set http timeout to custom value if specified.
-	if len(os.Args) > 1 {
-		//Make sure its numeric
-		customTimeout, err := strconv.ParseInt(os.Args[1], 10, 64)
-		if err != nil {
-			return fmt.Errorf("Timeout argument not numeric")
-		}
+	log.Printf("Setting HTTP client timeout to %s", *timeout)
+	outgoingClient.Timeout = *timeout
 
-		log.Printf("Setting HTTP client timeout to %d seconds", customTimeout)
-
-		outgoingClient.Timeout = time.Duration(customTimeout) * time.Second
+	if *useHTTPS {
+		protocol = "https"
 	}
+	log.Printf("Setting protocol to %s", protocol)
 
 	return nil
 }
@@ -103,7 +108,7 @@ func checkHandler(w http.ResponseWriter, r *http.Request) {
 	outgoingResp := &responseJSON{Bytes: &payloadFileLength}
 
 	route := mux.Vars(r)["route"]
-	resp, err := outgoingClient.Post(fmt.Sprintf("http://%s/listen", route), "text/plain", bufio.NewReader(payloadFile))
+	resp, err := outgoingClient.Post(fmt.Sprintf("%s://%s/listen", protocol, route), "text/plain", bufio.NewReader(payloadFile))
 
 	if err != nil {
 		outgoingResp.ErrorMessage = fmt.Sprintf("Error while sending request: %s", err)
