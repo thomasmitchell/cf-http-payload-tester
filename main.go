@@ -103,7 +103,7 @@ func checkHandler(w http.ResponseWriter, r *http.Request) {
 	outgoingResp := &responseJSON{Bytes: &payloadFileLength}
 
 	route := mux.Vars(r)["route"]
-	resp, err := http.Post(fmt.Sprintf("http://%s/listen", route), "text/plain", bufio.NewReader(payloadFile))
+	resp, err := outgoingClient.Post(fmt.Sprintf("http://%s/listen", route), "text/plain", bufio.NewReader(payloadFile))
 
 	if err != nil {
 		outgoingResp.ErrorMessage = fmt.Sprintf("Error while sending request: %s", err)
