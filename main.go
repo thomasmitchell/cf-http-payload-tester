@@ -10,6 +10,8 @@ import (
 
 	"bufio"
 
+	"io"
+
 	"github.com/gorilla/mux"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -106,9 +108,16 @@ func responsify(r *responseJSON) []byte {
 
 func checkHandler(w http.ResponseWriter, r *http.Request) {
 	outgoingResp := &responseJSON{Bytes: &payloadFileLength}
-
 	route := mux.Vars(r)["route"]
 	resp, err := outgoingClient.Post(fmt.Sprintf("%s://%s/listen", protocol, route), "text/plain", bufio.NewReader(payloadFile))
+
+	//Reset payload file seek position to the start of the file
+	defer func() {
+		_, err = payloadFile.Seek(0, io.SeekStart)
+		if err != nil {
+			panic("Could not reset payload file seek position")
+		}
+	}()
 
 	if err != nil {
 		outgoingResp.ErrorMessage = fmt.Sprintf("Error while sending request: %s", err)
