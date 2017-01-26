@@ -88,6 +88,7 @@ func launchAPIServer() error {
 	router := mux.NewRouter()
 	router.HandleFunc("/check/{route}", checkHandler).Methods("GET")
 	router.HandleFunc("/listen", listenHandler).Methods("POST")
+	router.HandleFunc("/pull", pullHandler).Methods("GET")
 
 	return http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), router)
 }
@@ -140,4 +141,25 @@ func listenHandler(w http.ResponseWriter, r *http.Request) {
 	//I mean... TCP guarantees that if we're this far, the body is correct
 	// So.... if we got this far, the payload was successfully sent
 	w.WriteHeader(http.StatusOK)
+}
+
+func pullHandler(w http.ResponseWriter, r *http.Request) {
+	var err error
+	//Reset payload file seek position to the start of the file
+	defer func() {
+		_, err = payloadFile.Seek(0, io.SeekStart)
+		if err != nil {
+			panic("Could not reset payload file seek position")
+		}
+	}()
+
+	//Gotta take the file in in chunks so that we don't blow up the RAM if
+	// somebody tests with a huge file.
+	const bufferSize = 8 * 1024 //8KiB please
+	buffer := make([]byte, bufferSize)
+	var bytesRead = bufferSize //Initial value to kick off the while loop
+	for bytesRead == bufferSize && err != io.EOF {
+		bytesRead, err = payloadFile.Read(buffer)
+		w.Write(buffer[:bytesRead])
+	}
 }
