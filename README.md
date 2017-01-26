@@ -36,11 +36,16 @@ send out an https request for checks. See `--help` for more details.
 
 ### Making requests
 
-The application listens on the `/check/{route}` endpoint, where {route} is the
+The application listens on the `/check/{route}` endpoint for GET requests, where 
+{route} is the
 hostname of the server you'd like to check the request against. {route} actually
 gets substituted into the sent URL like `http://{route}/listen`, so form your
-request accordingly.
+request accordingly. This will send the configured payload to the route you've
+specified.
 
 ```bash
 curl localhost:1234/check/localhost:1234
 ```
+
+The app also listen on the `/pull` endpoint for get requests. This will send the
+configured payload back as a response to that request.
