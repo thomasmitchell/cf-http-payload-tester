@@ -28,7 +28,7 @@ var (
 	protocol          = "http"
 
 	//COMMAND LINE STUFF
-	cmdline         = kingpin.New("cf-http-payload-tester", "Test your HTTP requests")
+	cmdline         = kingpin.New("cf-http-payload-tester", "Test your HTTP requests on Cloud Foundry")
 	timeout         = cmdline.Flag("timeout", "Time in seconds to wait for response to check calls").Short('t').Default(defaultTimeout).Duration()
 	useHTTPS        = cmdline.Flag("https-out", "Use https in outbound URL instead of http").Short('s').Bool()
 	payloadFilename = cmdline.Flag("payload", "Target payload file").Short('p').Default(defaultPayloadFilename).String()
@@ -110,7 +110,16 @@ func responsify(r *responseJSON) []byte {
 func checkHandler(w http.ResponseWriter, r *http.Request) {
 	outgoingResp := &responseJSON{Bytes: &payloadFileLength}
 	route := mux.Vars(r)["route"]
-	resp, err := outgoingClient.Post(fmt.Sprintf("%s://%s/listen", protocol, route), "text/plain", bufio.NewReader(payloadFile))
+	//Make our outgoing POST request to send to the other app
+	outgoingRequest, err := http.NewRequest("POST", fmt.Sprintf("%s://%s/listen", protocol, route), bufio.NewReader(payloadFile))
+	if err != nil {
+		panic("Could not form http request")
+	}
+	//Set the Content-Type and if X-Payload-Tracer is given, put that in too
+	outgoingRequest.Header.Set("Content-Type", "text/plain")
+	outgoingRequest.Header.Set("X-Payload-Tracer", r.Header.Get("X-Payload-Tracer"))
+
+	resp, err := outgoingClient.Do(outgoingRequest)
 
 	//Reset payload file seek position to the start of the file
 	defer func() {

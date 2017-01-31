@@ -43,6 +43,10 @@ gets substituted into the sent URL like `http://{route}/listen`, so form your
 request accordingly. This will send the configured payload to the route you've
 specified.
 
+The request is sent out with the `X-Payload-Tracer` header, which is blank by
+default. If the incoming request to this endpoint had an `X-Payload-Tracer`
+header set itself, then that value is forwarded in the header as well.
+
 ```bash
 curl localhost:1234/check/localhost:1234
 ```
