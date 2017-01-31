@@ -124,6 +124,7 @@ func checkHelper(w http.ResponseWriter, r *http.Request, sourceBody io.Reader, n
 	//Set the Content-Type and if X-Payload-Tracer is given, put that in too
 	outgoingRequest.Header.Set("Content-Type", "text/plain")
 	outgoingRequest.Header.Set("X-Payload-Tracer", r.Header.Get("X-Payload-Tracer"))
+	w.Header().Set("X-Payload-Tracer", r.Header.Get("X-Payload-Tracer"))
 
 	resp, err := outgoingClient.Do(outgoingRequest)
 
@@ -171,6 +172,7 @@ func generatedCheckHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func listenHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("X-Payload-Tracer", r.Header.Get("X-Payload-Tracer"))
 	_, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -179,6 +181,7 @@ func listenHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func pullHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("X-Payload-Tracer", r.Header.Get("X-Payload-Tracer"))
 	var err error
 	//Reset payload file seek position to the start of the file
 	defer func() {
