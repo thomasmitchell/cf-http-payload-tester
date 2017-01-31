@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -136,9 +137,8 @@ func checkHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Not sure this can even happen... but...
-	if resp.StatusCode != 200 {
-		outgoingResp.ErrorMessage = fmt.Sprintf("Non 200-code returned from request to listening server: %d", resp.StatusCode)
+	if resp.StatusCode == 500 {
+		outgoingResp.ErrorMessage = fmt.Sprintf("Remote server failed while reading request body")
 	}
 
 	w.WriteHeader(resp.StatusCode)
@@ -147,8 +147,10 @@ func checkHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func listenHandler(w http.ResponseWriter, r *http.Request) {
-	//I mean... TCP guarantees that if we're this far, the body is correct
-	// So.... if we got this far, the payload was successfully sent
+	_, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 	w.WriteHeader(http.StatusOK)
 }
 
