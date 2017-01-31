@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"bufio"
 
@@ -27,6 +29,8 @@ var (
 	payloadFileLength int64
 	outgoingClient    = &http.Client{}
 	protocol          = "http"
+	//Need a non-const version of http.StatusBadRequest
+	badRequestCode = int(http.StatusBadRequest)
 
 	//COMMAND LINE STUFF
 	cmdline         = kingpin.New("cf-http-payload-tester", "Test your HTTP requests on Cloud Foundry")
@@ -88,6 +92,7 @@ func setup() (err error) {
 func launchAPIServer() error {
 	router := mux.NewRouter()
 	router.HandleFunc("/check/{route}", checkHandler).Methods("GET")
+	router.HandleFunc("/gencheck/{route}/{bytes}", generatedCheckHandler).Methods("GET")
 	router.HandleFunc("/listen", listenHandler).Methods("POST")
 	router.HandleFunc("/pull", pullHandler).Methods("GET")
 
@@ -108,11 +113,11 @@ func responsify(r *responseJSON) []byte {
 	return ret
 }
 
-func checkHandler(w http.ResponseWriter, r *http.Request) {
-	outgoingResp := &responseJSON{Bytes: &payloadFileLength}
+func checkHelper(w http.ResponseWriter, r *http.Request, sourceBody io.Reader, numBytes int64) {
+	outgoingResp := &responseJSON{Bytes: &numBytes}
 	route := mux.Vars(r)["route"]
 	//Make our outgoing POST request to send to the other app
-	outgoingRequest, err := http.NewRequest("POST", fmt.Sprintf("%s://%s/listen", protocol, route), bufio.NewReader(payloadFile))
+	outgoingRequest, err := http.NewRequest("POST", fmt.Sprintf("%s://%s/listen", protocol, route), sourceBody)
 	if err != nil {
 		panic("Could not form http request")
 	}
@@ -144,6 +149,25 @@ func checkHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 	outgoingResp.Status = &resp.StatusCode
 	w.Write(responsify(outgoingResp))
+}
+
+func checkHandler(w http.ResponseWriter, r *http.Request) {
+	checkHelper(w, r, bufio.NewReader(payloadFile), payloadFileLength)
+}
+
+func generatedCheckHandler(w http.ResponseWriter, r *http.Request) {
+	numBytes := mux.Vars(r)["bytes"]
+	numBytesInt, err := strconv.ParseInt(numBytes, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(responsify(&responseJSON{Status: &badRequestCode, ErrorMessage: "Could not parse body size in request URL"}))
+	}
+
+	if numBytesInt < 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(responsify(&responseJSON{Status: &badRequestCode, ErrorMessage: "Cannot send negative amount of bytes"}))
+	}
+	checkHelper(w, r, io.LimitReader(rand.New(rand.NewSource(time.Now().UnixNano())), numBytesInt), numBytesInt)
 }
 
 func listenHandler(w http.ResponseWriter, r *http.Request) {

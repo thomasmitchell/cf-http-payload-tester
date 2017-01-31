@@ -53,3 +53,9 @@ curl localhost:1234/check/localhost:1234
 
 The app also listen on the `/pull` endpoint for get requests. This will send the
 configured payload back as a response to that request.
+
+If you want to generate random payloads for a check, you can use the
+`/gencheck/{route}/{bytes}` endpoint, where {route} is the desired target to
+send to, and {bytes} is the number of bytes to generate for the sent body. The
+generated body is pseudo-random. Otherwise, it acts the same as
+the standard check endpoint.
